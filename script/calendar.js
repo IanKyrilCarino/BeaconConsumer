@@ -1,155 +1,219 @@
-// Calendar Functions
-function initializeCalendar() {
-    generateCalendar(currentMonth, currentYear);
-    loadDateReports(currentDate);
-    
-    // Month navigation
-    document.getElementById('prev-month')?.addEventListener('click', function() {
-        currentMonth--;
-        if (currentMonth < 0) {
-            currentMonth = 11;
-            currentYear--;
-        }
-        generateCalendar(currentMonth, currentYear);
-    });
-    
-    document.getElementById('next-month')?.addEventListener('click', function() {
-        currentMonth++;
-        if (currentMonth > 11) {
-            currentMonth = 0;
-            currentYear++;
-        }
-        generateCalendar(currentMonth, currentYear);
-    });
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const state = {
+        currentMonth: new Date().getMonth(),
+        currentYear: new Date().getFullYear(),
+        selectedDate: new Date(),
+        outages: [],
+        isLoading: true
+    };
 
-function generateCalendar(month, year) {
-    const calendarDays = document.getElementById('calendar-days');
-    const currentMonthElement = document.getElementById('current-month');
-    
-    if (!calendarDays || !currentMonthElement) return;
-    
-    // Update month header
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ];
-    currentMonthElement.textContent = `${monthNames[month]} ${year}`;
-    
-    // Clear previous calendar
-    calendarDays.innerHTML = '';
-    
-    // Add day headers
-    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    dayHeaders.forEach(day => {
-        const dayElement = document.createElement('div');
-        dayElement.className = 'calendar-day-header';
-        dayElement.textContent = day;
-        calendarDays.appendChild(dayElement);
-    });
-    
-    // Get first day of month and number of days
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // Add empty days for previous month
-    for (let i = 0; i < firstDay; i++) {
-        const emptyDay = document.createElement('div');
-        emptyDay.className = 'calendar-day other-month';
-        calendarDays.appendChild(emptyDay);
-    }
-    
-    // Add days of current month
-    const today = new Date();
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dayElement = document.createElement('div');
-        dayElement.className = 'calendar-day';
-        dayElement.textContent = day;
-        
-        // Check if this day has reports
-        const dayDate = new Date(year, month, day);
-        const dayReports = getReportsForDate(dayDate);
-        
-        if (dayReports.length > 0) {
-            if (dayReports.length >= 3) {
-                dayElement.classList.add('has-multiple-outages');
-            } else {
-                dayElement.classList.add('has-outages');
-            }
-        }
-        
-        // Highlight current day
-        if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-            dayElement.classList.add('current');
-        }
-        
-        // Add click event
-        dayElement.addEventListener('click', function() {
-            selectDate(dayDate);
-        });
-        
-        calendarDays.appendChild(dayElement);
-    }
-}
+    const els = {
+        calendarContainer: document.querySelector('.calendar-container'),
+        calendarHeader: document.querySelector('.calendar-header'),
+        calendarDays: document.getElementById('calendar-days'),
+        dateTitle: document.getElementById('selected-date-title'),
+        reportsContainer: document.getElementById('date-reports-container')
+    };
 
-function selectDate(date) {
-    // Update selected date styling
-    document.querySelectorAll('.calendar-day').forEach(day => {
-        day.classList.remove('selected');
-    });
-    
-    // Find and select the clicked day
-    const dayElements = document.querySelectorAll('.calendar-day');
-    const clickedDay = Array.from(dayElements).find(day => 
-        day.textContent == date.getDate() && !day.classList.contains('other-month')
-    );
-    
-    if (clickedDay) {
-        clickedDay.classList.add('selected');
-    }
-    
-    // Load reports for selected date
-    loadDateReports(date);
-}
+    async function init() {
+        setupHeaderStructure();
+        renderCalendar();
+        renderDetails(state.selectedDate);
 
-function loadDateReports(date) {
-    const container = document.getElementById('date-reports-container');
-    const title = document.getElementById('selected-date-title');
-    
-    if (!container || !title) return;
-    
-    // Update title
-    const formattedDate = formatDate(date);
-    title.textContent = `Outages for ${formattedDate}`;
-    
-    // Get reports for the selected date
-    const dateReports = getReportsForDate(date);
-    
-    if (dateReports.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <span class="material-symbols-outlined">event_available</span>
-                <p>No outages reported for this date</p>
+        const supabaseReady = await waitForSupabase();
+        if (supabaseReady) {
+            await fetchScheduledOutages();
+        } else {
+            if(els.reportsContainer) els.reportsContainer.innerHTML = `<div class="no-outages-message">System offline.</div>`;
+        }
+    }
+
+    async function waitForSupabase(timeout = 5000, interval = 200) {
+        const startTime = Date.now();
+        while (Date.now() - startTime < timeout) {
+            if (window.supabase) return true;
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+        return false;
+    }
+
+    function setupHeaderStructure() {
+        const header = document.querySelector('.calendar-header');
+        if(!header) return;
+
+        header.innerHTML = `
+            <div class="calendar-nav">
+                <span class="calendar-year-text" id="year-display">${state.currentYear}</span>
+                <div class="calendar-month-row">
+                    <button id="prev-month-btn" class="nav-btn"><span class="material-symbols-outlined">chevron_left</span></button>
+                    <h2 id="current-month">Month</h2>
+                    <button id="next-month-btn" class="nav-btn"><span class="material-symbols-outlined">chevron_right</span></button>
+                </div>
             </div>
+            <div class="today-btn" style="color: #059669; font-weight: 500; font-size: 14px; padding-top: 12px; cursor: pointer; text-align: center;">Return to Today</div>
         `;
-        return;
-    }
-    
-    container.innerHTML = dateReports.map(report => `
-        <div class="report-card" onclick="viewReportDetail(${report.id})">
-            <div class="report-header">
-                <div class="feeder-info">${report.feeder} | ${report.area}</div>
-                <div class="status status-${report.status}">${formatStatus(report.status)}</div>
-            </div>
-            <div class="report-date">Started: ${formatTime(report.startTime)}</div>
-        </div>
-    `).join('');
-}
 
-function getReportsForDate(date) {
-    return reports.filter(report => {
-        const reportDate = new Date(report.startTime);
-        return reportDate.getDate() === date.getDate() &&
-               reportDate.getMonth() === date.getMonth() &&
-               reportDate.getFullYear() === date.getFullYear();
-    });
-}
+        document.getElementById('prev-month-btn').onclick = () => changeMonth(-1);
+        document.getElementById('next-month-btn').onclick = () => changeMonth(1);
+        header.querySelector('.today-btn').onclick = () => {
+            const today = new Date();
+            state.currentMonth = today.getMonth();
+            state.currentYear = today.getFullYear();
+            state.selectedDate = today;
+            renderCalendar();
+            renderDetails(state.selectedDate);
+        };
+    }
+
+    function changeMonth(offset) {
+        state.currentMonth += offset;
+        if(state.currentMonth < 0) { state.currentMonth = 11; state.currentYear--; } 
+        else if(state.currentMonth > 11) { state.currentMonth = 0; state.currentYear++; }
+        renderCalendar();
+    }
+
+    async function fetchScheduledOutages() {
+        state.isLoading = true;
+        renderDetails(state.selectedDate);
+        try {
+            const supabase = window.supabase;
+            const { data: announcements, error } = await supabase
+                .from('announcements')
+                .select('*')
+                .eq('type', 'scheduled')
+                .not('scheduled_at', 'is', null)
+                .order('scheduled_at', { ascending: true });
+
+            if (error) throw error;
+            state.outages = announcements || [];
+        } catch (err) {
+            console.error('💥 Fetch error:', err);
+        } finally {
+            state.isLoading = false;
+            renderCalendar();
+            renderDetails(state.selectedDate);
+        }
+    }
+
+    function renderCalendar() {
+        const daysContainer = document.getElementById('calendar-days');
+        if (!daysContainer) return;
+        daysContainer.innerHTML = '';
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        document.getElementById('current-month').textContent = monthNames[state.currentMonth];
+        document.getElementById('year-display').textContent = state.currentYear;
+
+        const firstDay = new Date(state.currentYear, state.currentMonth, 1).getDay();
+        const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+        const today = new Date();
+
+        for(let i = 0; i < firstDay; i++) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'calendar-day empty';
+            daysContainer.appendChild(emptyEl);
+        }
+
+        for(let i = 1; i <= daysInMonth; i++) {
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day';
+            dayEl.textContent = i;
+
+            const thisDate = new Date(state.currentYear, state.currentMonth, i);
+
+            // 1. Check for outages to apply RED HIGHLIGHT
+            const hasOutage = state.outages.some(outage => {
+                if (!outage.scheduled_at) return false;
+                return isSameDay(new Date(outage.scheduled_at), thisDate);
+            });
+
+            if(hasOutage) {
+                dayEl.classList.add('has-outage');
+            }
+
+            // 2. Check for Selected (Overrides red highlight due to CSS specificity)
+            if(isSameDay(thisDate, state.selectedDate)) {
+                dayEl.classList.add('selected');
+            } else if(isSameDay(thisDate, today)) {
+                dayEl.classList.add('current');
+            }
+
+            dayEl.onclick = () => {
+                state.selectedDate = thisDate;
+                renderCalendar(); // Re-render to update highlight selection
+                renderDetails(thisDate);
+            };
+
+            daysContainer.appendChild(dayEl);
+        }
+    }
+
+    function renderDetails(date) {
+        const container = document.getElementById('date-reports-container');
+        const title = document.getElementById('selected-date-title');
+        if (!container || !title) return;
+
+        const options = { month: 'long', day: 'numeric', year: 'numeric' };
+        title.textContent = isSameDay(date, new Date()) ? "Today's Schedule" : `Schedule for ${date.toLocaleDateString('en-US', options)}`;
+
+        if (state.isLoading) {
+            container.innerHTML = `<div class="no-outages-message">Loading schedule...</div>`;
+            return;
+        }
+
+        const daily = state.outages.filter(outage => isSameDay(new Date(outage.scheduled_at), date));
+
+        if(daily.length === 0) {
+            container.innerHTML = `<div class="no-outages-message">No scheduled outages for this date.</div>`;
+            return;
+        }
+
+        // MODERN TILE HTML STRUCTURE
+        container.innerHTML = daily.map(outage => {
+            const start = new Date(outage.scheduled_at);
+            const end = outage.estimated_restoration_at ? new Date(outage.estimated_restoration_at) : null;
+            
+            return `
+            <div class="outage-card">
+                <div class="card-header">
+                    <div>
+                        <span class="outage-type-badge">Scheduled Maintenance</span>
+                        <h3 class="outage-title">${outage.description || 'System Maintenance'}</h3>
+                    </div>
+                    <span class="status-pill">${outage.status || 'Scheduled'}</span>
+                </div>
+                
+                <div class="card-body">
+                    <div class="info-row">
+                        <span class="material-symbols-outlined">location_on</span>
+                        <span>${outage.location || outage.barangay || 'Multiple Areas'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-symbols-outlined">schedule</span>
+                        <span>
+                            <strong>${start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong>
+                            ${end ? ` - ${end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : ''}
+                        </span>
+                    </div>
+                    ${outage.cause ? `
+                    <div class="info-row">
+                        <span class="material-symbols-outlined">info</span>
+                        <span>${outage.cause}</span>
+                    </div>` : ''}
+                </div>
+
+                ${(outage.areas_affected && outage.areas_affected.length > 0) ? `
+                <div class="areas-container">
+                    <strong>Affected Areas:</strong> ${outage.areas_affected.join(', ')}
+                </div>` : ''}
+            </div>
+            `;
+        }).join('');
+    }
+
+    function isSameDay(d1, d2) {
+        return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+    }
+
+    init();
+});

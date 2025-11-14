@@ -1360,3 +1360,205 @@ main {
 .custom-marker.reported {
     z-index: 999;
 }
+
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999; /* On top of Leaflet */
+}
+
+/* Utility class to hide elements */
+.hidden { display: none !important; }
+
+/* Modal Content Box */
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    font-family: sans-serif;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    color: white;
+}
+
+.modal-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+/*Calendar*/
+
+/* --- CALENDAR HEADER STYLING --- */
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px;
+}
+
+.calendar-nav {
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-year-text {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.calendar-month-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.calendar-month-row h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.nav-btn:hover {
+    background-color: #f3f4f6;
+}
+
+/* --- CALENDAR GRID STYLING --- */
+/* --- UPDATED CALENDAR HIGHLIGHTS --- */
+/* Day with an outage (Red Highlight) */
+.calendar-day.has-outage {
+    background-color: #fef2f2; /* Light red background */
+    color: #dc2626;            /* Red text */
+    font-weight: 600;
+}
+
+/* Ensure selected state overrides outage state if clicked */
+.calendar-day.selected.has-outage {
+    background-color: #14532d; /* Back to green when selected */
+    color: white;
+}
+
+/* --- MODERN OUTAGE CARD STYLING --- */
+.outage-card {
+    background: white;
+    border-radius: 12px;
+    padding: 0; /* Padding handled by inner containers */
+    margin: 0 16px 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f3f4f6;
+    border-left: 5px solid #ef4444; /* Red accent for outages */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    padding: 16px 16px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #f9fafb;
+}
+
+.card-body {
+    padding: 12px 16px;
+}
+
+.outage-type-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: #ef4444;
+    background: #fef2f2;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+.outage-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.status-pill {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background-color: #ecfdf5;
+    color: #059669;
+    border: 1px solid #d1fae5;
+}
+
+.info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.info-row i, 
+.info-row .material-symbols-outlined {
+    font-size: 18px;
+    color: #9ca3af;
+    margin-top: 1px;
+}
+
+.areas-container {
+    background-color: #f9fafb;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #6b7280;
+    border-top: 1px solid #f3f4f6;
+}
