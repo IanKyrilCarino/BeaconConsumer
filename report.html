@@ -32,15 +32,15 @@
                 <span>Calendar</span>
                 </a>
             </li>
+            <li class="desktop-nav-item active" data-page="report">
+                <span class="material-symbols-outlined desktop-nav-icon">report</span>
+                <span>Report</span>
+            </li>
             <li class="desktop-nav-item" data-page="map">
                 <a href="map.html" class="desktop-nav-link">
                 <span class="material-symbols-outlined desktop-nav-icon">map</span>
                 <span>Map</span>
                 </a>
-            </li>
-            <li class="desktop-nav-item active" data-page="report">
-                <span class="material-symbols-outlined desktop-nav-icon">report</span>
-                <span>Report</span>
             </li>
             <li class="desktop-nav-item" data-page="notification">
                 <a href="notification.html" class="desktop-nav-link">
@@ -67,11 +67,9 @@
 
             <h2 class="section-title">Previous Reports</h2>
             <div id="user-reports-container">
-                <!-- User's previous reports will be loaded here -->
-            </div>
+                </div>
         </main>
 
-        <!-- Report Form Page -->
         <main class="page" id="report-form">
             <div class="report-form">
                 <h2 class="section-title">Report Outage</h2>
@@ -144,13 +142,13 @@
             <span class="material-symbols-outlined nav-icon">calendar_month</span>
             <span>Calendar</span>
         </a>
-        <a href="map.html" class="nav-item" data-page="map">
-            <span class="material-symbols-outlined nav-icon">map</span>
-            <span>Map</span>
-        </a>
         <a class="nav-item active" data-page="report">
             <span class="material-symbols-outlined nav-icon">report</span>
             <span>Report</span>
+        </a>
+        <a href="map.html" class="nav-item" data-page="map">
+            <span class="material-symbols-outlined nav-icon">map</span>
+            <span>Map</span>
         </a>
         <a href="notification.html" class="nav-item" data-page="notification">
             <span class="material-symbols-outlined nav-icon">notifications</span>
@@ -159,13 +157,10 @@
     </nav>
 
 
-    <!-- 1️⃣ Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- 2️⃣ Global initialization (defines supabase client) -->
     <script src="script/global.js"></script>
 
-    <!-- 3️⃣ Report logic (uses supabase) -->
     <script src="script/report.js"></script>
 
 

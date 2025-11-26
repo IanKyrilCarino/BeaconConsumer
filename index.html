@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
 </head>
 <body>
-  <!-- Desktop Navigation -->
   <nav class="desktop-nav">
     <div class="user-profile">
       <div class="user-avatar">JS</div>
@@ -32,16 +31,16 @@
           <span>Calendar</span>
         </a>
       </li>
-      <li class="desktop-nav-item" data-page="map">
-        <a href="map.html" class="desktop-nav-link">
-          <span class="material-symbols-outlined desktop-nav-icon">map</span>
-          <span>Map</span>
-        </a>
-      </li>
       <li class="desktop-nav-item" data-page="report">
         <a href="report.html" class="desktop-nav-link">
           <span class="material-symbols-outlined desktop-nav-icon">report</span>
           <span>Report</span>
+        </a>
+      </li>
+      <li class="desktop-nav-item" data-page="map">
+        <a href="map.html" class="desktop-nav-link">
+          <span class="material-symbols-outlined desktop-nav-icon">map</span>
+          <span>Map</span>
         </a>
       </li>
       <li class="desktop-nav-item" data-page="notification">
@@ -53,14 +52,12 @@
     </ul>
   </nav>
 
-  <!-- Content Area -->
   <div class="content-area">
     <header>
       <div class="logo">Beacon</div>
       <div class="profile-icon">JS</div>
     </header>
 
-    <!-- Dashboard Page -->
     <main class="page active" id="dashboard">
       <div class="search-container">
         <span class="material-symbols-outlined search-icon">search</span>
@@ -80,12 +77,10 @@
 
       <h2 class="section-title">Recent Outages</h2>
       <div class="reports-grid" id="reports-container">
-        <!-- Reports will be dynamically loaded here -->
-      </div>
+        </div>
     </main>
   </div>
 
-  <!-- Bottom Navigation for Mobile -->
   <nav class="bottom-nav">
     <a class="nav-item active" data-page="dashboard">
       <span class="material-symbols-outlined nav-icon">dashboard</span>
@@ -95,13 +90,13 @@
       <span class="material-symbols-outlined nav-icon">calendar_month</span>
       <span>Calendar</span>
     </a>
-    <a href="map.html" class="nav-item" data-page="map">
-      <span class="material-symbols-outlined nav-icon">map</span>
-      <span>Map</span>
-    </a>
     <a href="report.html" class="nav-item" data-page="report">
       <span class="material-symbols-outlined nav-icon">report</span>
       <span>Report</span>
+    </a>
+    <a href="map.html" class="nav-item" data-page="map">
+      <span class="material-symbols-outlined nav-icon">map</span>
+      <span>Map</span>
     </a>
     <a href="notification.html" class="nav-item" data-page="notification">
       <span class="material-symbols-outlined nav-icon">notifications</span>

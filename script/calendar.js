@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentYear: new Date().getFullYear(),
         selectedDate: new Date(),
         outages: [],
-        isLoading: true
+        isLoading: true,
+        userBarangay: null // Store user's barangay
     };
 
     const els = {
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const supabaseReady = await waitForSupabase();
         if (supabaseReady) {
+            await fetchUserProfile(); // New Step: Get user context
             await fetchScheduledOutages();
         } else {
             if(els.reportsContainer) els.reportsContainer.innerHTML = `<div class="no-outages-message">System offline.</div>`;
@@ -35,6 +37,41 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(resolve => setTimeout(resolve, interval));
         }
         return false;
+    }
+
+    // NEW: Fetch User Profile for Filtering
+    async function fetchUserProfile() {
+        try {
+            const { data: { user } } = await window.supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await window.supabase
+                    .from('profiles')
+                    .select('barangay')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (profile && profile.barangay && profile.barangay !== 'Not set') {
+                    // Ensure we are checking the name. If ID is stored, we might need to fetch the name from 'barangays' table.
+                    // Assuming 'profiles.barangay' stores the text name based on your context.
+                    // If it stores ID, we'd need an extra fetch here. 
+                    // For now, we assume it's the text name to match 'areas_affected'.
+                    
+                    // If it is a number (ID), try to resolve it (Optional safety)
+                    if (!isNaN(profile.barangay)) {
+                         const { data: bData } = await window.supabase
+                            .from('barangays')
+                            .select('name')
+                            .eq('id', profile.barangay)
+                            .single();
+                         if(bData) state.userBarangay = bData.name;
+                    } else {
+                        state.userBarangay = profile.barangay;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("Could not load user profile for calendar filtering", err);
+        }
     }
 
     function setupHeaderStructure() {
@@ -77,15 +114,39 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDetails(state.selectedDate);
         try {
             const supabase = window.supabase;
+            
+            // UPDATED QUERY: Exclude completed
             const { data: announcements, error } = await supabase
                 .from('announcements')
                 .select('*')
                 .eq('type', 'scheduled')
+                .neq('status', 'Completed') // Remove completed
+                .neq('status', 'completed') // Safety for lowercase
                 .not('scheduled_at', 'is', null)
                 .order('scheduled_at', { ascending: true });
 
             if (error) throw error;
-            state.outages = announcements || [];
+
+            let results = announcements || [];
+
+            // UPDATED FILTERING: Filter by User Barangay if set
+            if (state.userBarangay) {
+                const target = state.userBarangay.toLowerCase();
+                
+                results = results.filter(outage => {
+                    // 1. Check main barangay field
+                    const mainMatch = (outage.barangay || '').toLowerCase().includes(target);
+                    
+                    // 2. Check areas_affected array
+                    const areaMatch = Array.isArray(outage.areas_affected) && 
+                                      outage.areas_affected.some(area => area.toLowerCase().includes(target));
+                    
+                    return mainMatch || areaMatch;
+                });
+            }
+
+            state.outages = results;
+
         } catch (err) {
             console.error('💥 Fetch error:', err);
         } finally {
@@ -108,39 +169,66 @@ document.addEventListener('DOMContentLoaded', () => {
         const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
         const today = new Date();
 
+        // Empty slots for previous month
         for(let i = 0; i < firstDay; i++) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'calendar-day empty';
+            emptyEl.style.visibility = 'hidden'; // Clean empty look
             daysContainer.appendChild(emptyEl);
         }
 
+        // Render Days
         for(let i = 1; i <= daysInMonth; i++) {
             const dayEl = document.createElement('div');
             dayEl.className = 'calendar-day';
-            dayEl.textContent = i;
-
+            
             const thisDate = new Date(state.currentYear, state.currentMonth, i);
 
-            // 1. Check for outages to apply RED HIGHLIGHT
-            const hasOutage = state.outages.some(outage => {
+            // 1. Add Date Number
+            const dateNum = document.createElement('span');
+            dateNum.className = 'day-number';
+            dateNum.textContent = i;
+            dayEl.appendChild(dateNum);
+
+            // 2. Find Outages
+            const dailyOutages = state.outages.filter(outage => {
                 if (!outage.scheduled_at) return false;
                 return isSameDay(new Date(outage.scheduled_at), thisDate);
             });
 
-            if(hasOutage) {
+            if(dailyOutages.length > 0) {
                 dayEl.classList.add('has-outage');
+                
+                // --- ELEMENT A: MOBILE DOT ---
+                const mobileDot = document.createElement('div');
+                mobileDot.className = 'mobile-outage-dot';
+                dayEl.appendChild(mobileDot);
+
+                // --- ELEMENT B: DESKTOP PILL ---
+                dailyOutages.forEach(outage => {
+                    const time = new Date(outage.scheduled_at).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+                    
+                    const pill = document.createElement('div');
+                    pill.className = 'outage-pill';
+                    // Just Time + "Scheduled"
+                    pill.innerHTML = `${time} Scheduled`; 
+                    dayEl.appendChild(pill);
+                });
             }
 
-            // 2. Check for Selected (Overrides red highlight due to CSS specificity)
+            // 3. Selection Logic
+            // Only apply 'current' if it is today
+            if(isSameDay(thisDate, today)) {
+                dayEl.classList.add('current');
+            }
+            // Apply 'selected' if clicked (can be both current and selected)
             if(isSameDay(thisDate, state.selectedDate)) {
                 dayEl.classList.add('selected');
-            } else if(isSameDay(thisDate, today)) {
-                dayEl.classList.add('current');
             }
 
             dayEl.onclick = () => {
                 state.selectedDate = thisDate;
-                renderCalendar(); // Re-render to update highlight selection
+                renderCalendar(); // Re-render to update styling
                 renderDetails(thisDate);
             };
 

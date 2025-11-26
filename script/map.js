@@ -3,28 +3,115 @@ let currentMarkers = [];
 let allReports = [];
 let userBarangay = null;
 
-async function initSimpleMap() {
-  simpleMap = L.map('map').setView([16.4142, 120.5950], 13);
+// ==============================
+// 1. Wait for Supabase Connection
+// ==============================
+async function waitForSupabase() {
+  let retries = 0;
+  while ((!window.supabase || typeof window.supabase.from !== "function") && retries < 30) {
+    await new Promise((r) => setTimeout(r, 200));
+    retries++;
+  }
+  if (!window.supabase || typeof window.supabase.from !== "function") {
+    console.error("❌ Supabase failed to initialize.");
+    throw new Error("Supabase not ready");
+  }
+}
 
+// ==============================
+// 2. Initialize Map
+// ==============================
+async function initSimpleMap() {
+  // Initialize Map View
+  simpleMap = L.map('map').setView([16.4142, 120.5950], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
   }).addTo(simpleMap);
 
+  // Wait for DB
+  await waitForSupabase();
+
+  // Load User Profile (needed for highlighting)
   await loadUserProfile();
+  
+  // Load Reports and Plot Markers
   await loadAndPlotReports();
+  
   setupAreaFilter();
   setupSearch();
   
-  // Check if user's barangay has an outage
-  if (userBarangay && userBarangay !== 'Not set') {
-    checkUserBarangayOutage();
+  // Handle Redirects (View on Map button)
+  const urlParams = new URLSearchParams(window.location.search);
+  const focusId = urlParams.get('id');
+  
+  if (focusId) {
+      // CASE A: User clicked "View on Map" from Dashboard -> Open Modal & Zoom
+      handleIncomingRedirect(focusId);
+  } else {
+      // CASE B: User clicked "Map" tab -> Just Zoom & Highlight (No Modal)
+      if (userBarangay && userBarangay !== 'Not set') {
+        checkUserBarangayOutage();
+      }
   }
 }
 
+// ==============================
+// 3. Helper: Zoom to User Area & Highlight (No Modal)
+// ==============================
+function checkUserBarangayOutage() {
+  const affectedReports = allReports.filter(report => {
+    if (report.areas_affected && Array.isArray(report.areas_affected)) {
+      return report.areas_affected.some(area => 
+        area.toLowerCase().includes(userBarangay.toLowerCase()) ||
+        userBarangay.toLowerCase().includes(area.toLowerCase())
+      );
+    }
+    return false;
+  });
+
+  if (affectedReports.length > 0) {
+    // Get the most recent relevant report
+    const report = affectedReports[0];
+    const lat = Number(report.latitude);
+    const lng = Number(report.longitude);
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      // 1. Center Map
+      simpleMap.setView([lat, lng], 16);
+      
+      // 2. Highlight the marker (Blue Pulse)
+      highlightUserRelevantMarker();
+    }
+  } else {
+    showNoOutageNotification();
+  }
+}
+
+// ==============================
+// 4. Helper: Handle Redirect (Opens Modal)
+// ==============================
+function handleIncomingRedirect(id) {
+    const targetMarker = currentMarkers.find(marker => marker.reportData.id == id);
+
+    if (targetMarker) {
+        const latLng = targetMarker.getLatLng();
+        simpleMap.setView(latLng, 18); 
+        
+        // Simulate click to open modal
+        setTimeout(() => {
+            targetMarker.fire('click');
+        }, 500); 
+    } else {
+        console.warn(`Marker for Announcement ID ${id} not found on map.`);
+    }
+}
+
+// ==============================
+// 5. Load User Profile
+// ==============================
 async function loadUserProfile() {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (user) {
       const { data, error } = await supabase
         .from('profiles')
@@ -41,57 +128,9 @@ async function loadUserProfile() {
   }
 }
 
-function checkUserBarangayOutage() {
-  // Find reports that affect the user's barangay
-  const affectedReports = allReports.filter(report => {
-    if (report.areas_affected && Array.isArray(report.areas_affected)) {
-      return report.areas_affected.some(area => 
-        area.toLowerCase().includes(userBarangay.toLowerCase()) ||
-        userBarangay.toLowerCase().includes(area.toLowerCase())
-      );
-    }
-    return false;
-  });
-
-  if (affectedReports.length > 0) {
-    // Focus on the first affected report
-    const report = affectedReports[0];
-    const lat = Number(report.latitude);
-    const lng = Number(report.longitude);
-    
-    if (!isNaN(lat) && !isNaN(lng)) {
-      simpleMap.setView([lat, lng], 15);
-      
-      // Open modal after a short delay
-      setTimeout(() => {
-        openModal(report);
-      }, 500);
-    }
-  } else {
-    // Show notification that there are no outages in their area
-    showNoOutageNotification();
-  }
-}
-
-function showNoOutageNotification() {
-  const notification = document.createElement('div');
-  notification.className = 'no-outage-notification';
-  notification.innerHTML = `
-    <span class="material-symbols-outlined">check_circle</span>
-    <span>No reported or ongoing outages in ${userBarangay}</span>
-  `;
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    notification.classList.add('show');
-  }, 100);
-  
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 4000);
-}
-
+// ==============================
+// 6. Load and Plot Reports (Main Logic)
+// ==============================
 async function loadAndPlotReports(feederFilter = null) {
   try {
     let query = supabase
@@ -99,25 +138,25 @@ async function loadAndPlotReports(feederFilter = null) {
       .select('*')
       .not('latitude', 'is', null)
       .not('longitude', 'is', null)
-      .in('status', ['Reported', 'Ongoing']);
+      .in('status', ['Reported', 'Ongoing'])
+      // Sort by created_at desc so "most recent" is processed first
+      .order('created_at', { ascending: false });
 
-    // Apply feeder filter if specified
     if (feederFilter && feederFilter !== 'my-area') {
       const feederNumber = parseInt(feederFilter.replace('feeder-', ''));
       query = query.eq('feeder_id', feederNumber);
     }
 
     const { data, error } = await query;
-
     if (error) throw error;
 
     allReports = data;
 
-    // Remove existing markers
+    // Clear existing markers
     currentMarkers.forEach(marker => simpleMap.removeLayer(marker));
     currentMarkers = [];
 
-    // Group reports by coordinates to handle overlapping
+    // Group for spiral (overlapping coords)
     const coordinateGroups = {};
     data.forEach(report => {
       const lat = Number(report.latitude);
@@ -125,39 +164,26 @@ async function loadAndPlotReports(feederFilter = null) {
       if (isNaN(lat) || isNaN(lng)) return;
       
       const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-      if (!coordinateGroups[key]) {
-        coordinateGroups[key] = [];
-      }
+      if (!coordinateGroups[key]) coordinateGroups[key] = [];
       coordinateGroups[key].push(report);
     });
 
-    // Add markers with offset for overlapping coordinates
+    // Plot Markers
     Object.entries(coordinateGroups).forEach(([key, reports]) => {
       reports.forEach((report, index) => {
         const lat = Number(report.latitude);
         const lng = Number(report.longitude);
         
-        // Add slight offset for overlapping markers (spiral pattern)
-        const offsetDistance = 0.0003 * index; // ~30 meters per marker
-        const angle = (index * 137.5) * (Math.PI / 180); // Golden angle for even distribution
+        // Spiral Logic
+        const offsetDistance = 0.0003 * index; 
+        const angle = (index * 137.5) * (Math.PI / 180); 
         const offsetLat = lat + (offsetDistance * Math.cos(angle));
         const offsetLng = lng + (offsetDistance * Math.sin(angle));
 
+        // Default Colors (Red/Yellow)
+        // Note: Blue highlight is applied separately
         const color = report.status === 'Ongoing' ? '#FFC107' : '#DC3545';
-        
-        // Create custom icon (pin marker style)
-        const markerIcon = L.divIcon({
-          className: 'custom-marker-icon',
-          html: `
-            <div class="marker-pin" style="background-color: ${color};">
-              <div class="marker-pulse" style="background-color: ${color};"></div>
-            </div>
-            <div class="marker-shadow"></div>
-          `,
-          iconSize: [30, 42],
-          iconAnchor: [15, 42],
-          popupAnchor: [0, -42]
-        });
+        const markerIcon = createCustomIcon(color);
 
         const marker = L.marker([offsetLat, offsetLng], {
           icon: markerIcon
@@ -167,30 +193,98 @@ async function loadAndPlotReports(feederFilter = null) {
           openModal(report);
         });
 
-        // Store report data with marker for search
         marker.reportData = report;
         currentMarkers.push(marker);
       });
     });
 
-    // Fit map bounds to markers if any exist - Always show all markers
-    if (currentMarkers.length > 0) {
+    // === CRITICAL: Re-apply Blue Highlight after every plot ===
+    if (userBarangay) {
+        highlightUserRelevantMarker();
+    }
+
+    // Fit bounds if not redirecting
+    if (currentMarkers.length > 0 && !window.location.search.includes('id=')) {
       const group = L.featureGroup(currentMarkers);
       simpleMap.fitBounds(group.getBounds().pad(0.1));
     }
+
   } catch (err) {
     console.error('Error loading reports:', err);
   }
 }
 
+// ==============================
+// 7. Helper: Highlight User Relevant Marker (Blue Pulse)
+// ==============================
+function highlightUserRelevantMarker() {
+    if (!userBarangay || userBarangay === 'Not set') return;
+
+    // Find the most recent relevant marker
+    const targetMarker = currentMarkers.find(m => {
+        const r = m.reportData;
+        const mainMatch = (r.barangay || '').toLowerCase().includes(userBarangay.toLowerCase());
+        const areaMatch = Array.isArray(r.areas_affected) && 
+                          r.areas_affected.some(area => area.toLowerCase().includes(userBarangay.toLowerCase()));
+        return mainMatch || areaMatch;
+    });
+
+    if (targetMarker) {
+        // Change Icon to Blue Pulse
+        const blueIcon = createCustomIcon('#2196F3'); // Material Blue
+        targetMarker.setIcon(blueIcon);
+        
+        // Bring to front so it's visible over others
+        targetMarker.setZIndexOffset(1000);
+    }
+}
+
+// ==============================
+// 8. Helper: Icon Generator
+// ==============================
+function createCustomIcon(color) {
+    return L.divIcon({
+      className: 'custom-marker-icon',
+      html: `
+        <div class="marker-pin" style="background-color: ${color};">
+          <div class="marker-pulse" style="background-color: ${color};"></div>
+        </div>
+        <div class="marker-shadow"></div>
+      `,
+      iconSize: [30, 42],
+      iconAnchor: [15, 42],
+      popupAnchor: [0, -42]
+    });
+}
+
+// ==============================
+// 9. Notification: No Outage Found
+// ==============================
+function showNoOutageNotification() {
+  const notification = document.createElement('div');
+  notification.className = 'no-outage-notification';
+  notification.innerHTML = `
+    <span class="material-symbols-outlined">check_circle</span>
+    <span>No reported or ongoing outages in ${userBarangay}</span>
+  `;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => notification.classList.add('show'), 100);
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+}
+
+// ==============================
+// 10. Modal Logic
+// ==============================
 function openModal(report) {
-  // Create modal if it doesn't exist
   let modal = document.getElementById('announcementModal');
   if (!modal) {
     modal = createModal();
   }
 
-  // Populate modal content
   document.getElementById('modalTitle').textContent = report.cause || 'Power Outage';
   document.getElementById('modalStatus').textContent = report.status || 'Reported';
   document.getElementById('modalStatus').className = `modal-status status-${(report.status || 'Reported').toLowerCase()}`;
@@ -211,25 +305,16 @@ function openModal(report) {
   const img = document.getElementById('modalImage');
   const imgContainer = document.getElementById('modalImageContainer');
   if (report.picture && report.picture.trim() !== '') {
-    // Handle Supabase storage URLs
     let imageUrl = report.picture;
-    
-    // If it's a relative path, construct full URL
     if (!imageUrl.startsWith('http')) {
       const { data: { publicUrl } } = supabase.storage
         .from('outage-pictures')
         .getPublicUrl(imageUrl);
       imageUrl = publicUrl;
     }
-    
     img.src = imageUrl;
-    img.onerror = () => {
-      // Hide image if it fails to load
-      imgContainer.style.display = 'none';
-    };
-    img.onload = () => {
-      imgContainer.style.display = 'block';
-    };
+    img.onerror = () => { imgContainer.style.display = 'none'; };
+    img.onload = () => { imgContainer.style.display = 'block'; };
     imgContainer.style.display = 'block';
   } else {
     imgContainer.style.display = 'none';
@@ -292,7 +377,6 @@ function createModal() {
   
   document.body.appendChild(modal);
 
-  // Add event listeners
   const closeBtn = modal.querySelector('.modal-close-btn');
   closeBtn.onclick = () => modal.style.display = 'none';
 
@@ -305,6 +389,9 @@ function createModal() {
   return modal;
 }
 
+// ==============================
+// 11. Filters & Search
+// ==============================
 function setupAreaFilter() {
   const areaSelector = document.getElementById('area-selector');
   if (areaSelector) {
@@ -320,10 +407,8 @@ async function setupSearch() {
   const dropdown = document.getElementById('searchDropdown');
   
   if (searchInput) {
-    // Load barangays for dropdown
     const barangays = await loadBarangays();
     
-    // Create dropdown if it doesn't exist
     if (!dropdown) {
       const newDropdown = document.createElement('div');
       newDropdown.id = 'searchDropdown';
@@ -331,13 +416,11 @@ async function setupSearch() {
       searchInput.parentNode.appendChild(newDropdown);
     }
     
-    // Input event for real-time filtering
     searchInput.addEventListener('input', (e) => {
       const query = e.target.value.trim();
       filterBarangays(query, barangays);
     });
     
-    // Enter key event for search
     searchInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
         const query = e.target.value.trim();
@@ -348,7 +431,6 @@ async function setupSearch() {
       }
     });
     
-    // Click outside to hide dropdown
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
         hideDropdown();
@@ -390,7 +472,6 @@ function filterBarangays(query, barangays) {
     ).join('');
     dropdown.style.display = 'block';
     
-    // Add click event to dropdown items
     dropdown.querySelectorAll('.dropdown-item').forEach(item => {
       item.addEventListener('click', () => {
         const searchInput = document.getElementById('locationSearch');
@@ -414,44 +495,29 @@ function hideDropdown() {
 async function searchAffectedLocation(query) {
   const queryLower = query.toLowerCase();
   
-  // Search through affected areas and locations
   const matchingReports = allReports.filter(report => {
-    // Check location field
-    if (report.location && report.location.toLowerCase().includes(queryLower)) {
-      return true;
-    }
-    
-    // Check barangay field
-    if (report.barangay && report.barangay.toLowerCase().includes(queryLower)) {
-      return true;
-    }
-    
-    // Check areas_affected array
+    if (report.location && report.location.toLowerCase().includes(queryLower)) return true;
+    if (report.barangay && report.barangay.toLowerCase().includes(queryLower)) return true;
     if (report.areas_affected && Array.isArray(report.areas_affected)) {
       return report.areas_affected.some(area => 
         area.toLowerCase().includes(queryLower)
       );
     }
-    
     return false;
   });
   
   if (matchingReports.length > 0) {
-    // Focus on the first matching report
     const report = matchingReports[0];
     const lat = Number(report.latitude);
     const lng = Number(report.longitude);
     
     if (!isNaN(lat) && !isNaN(lng)) {
       simpleMap.setView([lat, lng], 16);
-      
-      // Highlight the marker briefly
       setTimeout(() => {
         openModal(report);
       }, 300);
     }
   } else {
-    // Show notification that location not found
     const notification = document.createElement('div');
     notification.className = 'search-notification';
     notification.innerHTML = `
@@ -471,21 +537,32 @@ async function searchAffectedLocation(query) {
   }
 }
 
-// Initialize map when DOM is ready
+// ==============================
+// 12. Startup
+// ==============================
 document.addEventListener('DOMContentLoaded', () => {
   initSimpleMap();
 });
 
-// Add CSS styles for map controls, markers, and modal
+// ==============================
+// 13. Styles Injection (Fixes Z-Index Issue)
+// ==============================
 const styles = document.createElement('style');
 styles.textContent = `
-  /* Map Controls Styling - Horizontal Layout */
+  /* FORCE OVERLAYS TO BE ON TOP OF MAP CONTROLS */
+  .modal-overlay, .modal { 
+      z-index: 20000 !important; 
+  }
+
+  /* Map Controls - High but lower than modal */
   .map-controls {
     display: flex;
     gap: 8px;
     align-items: center;
     margin-bottom: 12px;
     flex-wrap: nowrap;
+    position: relative;
+    z-index: 1000; /* Lowered from 10002 to allow modal (20000) to sit on top */
   }
 
   .map-search-container {
@@ -509,6 +586,7 @@ styles.textContent = `
     border-color: #4285f4;
   }
 
+  /* Search Dropdown needs to be slightly above controls */
   .search-dropdown {
     position: absolute;
     top: 100%;
@@ -520,7 +598,7 @@ styles.textContent = `
     border-radius: 0 0 8px 8px;
     max-height: 200px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 1001; /* Just above the map-controls (1000) */
     display: none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
@@ -703,11 +781,11 @@ styles.textContent = `
     font-size: 24px;
   }
 
-  /* Modal Styling */
+  /* MAP ANNOUNCEMENT MODAL - Set to 2000 (Above map/controls, below global modal) */
   .modal {
     display: none;
     position: fixed;
-    z-index: 10000;
+    z-index: 2000; 
     left: 0;
     top: 0;
     width: 100%;

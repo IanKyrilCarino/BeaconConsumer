@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icons/icon-72x72.png",
+      "src": "images/beacon-icon-72.png",
       "sizes": "72x72",
       "type": "image/png"
     },

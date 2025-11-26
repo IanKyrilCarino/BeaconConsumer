@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-    <!-- Desktop Navigation -->
     <nav class="desktop-nav">
         <div class="user-profile">
             <div class="user-avatar">JS</div>
@@ -35,15 +34,15 @@
                     <span>Calendar</span>
                 </a>
             </li>
-            <li class="desktop-nav-item active" data-page="map">
-                <span class="material-symbols-outlined desktop-nav-icon">map</span>
-                <span>Map</span>
-            </li>
             <li class="desktop-nav-item" data-page="report">
                 <a href="report.html" class="desktop-nav-link">
                     <span class="material-symbols-outlined desktop-nav-icon">report</span>
                     <span>Report</span>
                 </a>
+            </li>
+            <li class="desktop-nav-item active" data-page="map">
+                <span class="material-symbols-outlined desktop-nav-icon">map</span>
+                <span>Map</span>
             </li>
             <li class="desktop-nav-item" data-page="notification">
                 <a href="notification.html" class="desktop-nav-link">
@@ -54,7 +53,6 @@
         </ul>
     </nav>
 
-    <!-- Content Area -->
     <div class="content-area">
         <header>
             <div class="logo">Beacon</div>
@@ -63,7 +61,6 @@
 
         <main class="page active" id="map-page">
             <div class="map-content-area">
-                <!-- Controls: Search + Area Selector -->
                 <div class="map-controls">
                 <input type="text" id="locationSearch" placeholder="Search Location..." class="map-search-input">
 
@@ -86,7 +83,6 @@
                     
                 </div>
 
-                <!-- Map Container -->
                 <div id="map" class="map-container"></div>
 
                 <p class="map-attribution">
@@ -96,13 +92,11 @@
                     </a>
                 </p>
 
-                <!-- Map Reports -->
                 <div id="map-reports-container" class="map-reports"></div>
             </div>
         </main>
     </div>
 
-    <!-- Bottom Navigation -->
     <nav class="bottom-nav">
         <a href="index.html" class="nav-item" data-page="dashboard">
             <span class="material-symbols-outlined nav-icon">dashboard</span>
@@ -112,13 +106,13 @@
             <span class="material-symbols-outlined nav-icon">calendar_month</span>
             <span>Calendar</span>
         </a>
-        <a class="nav-item active" data-page="map">
-            <span class="material-symbols-outlined nav-icon">map</span>
-            <span>Map</span>
-        </a>
         <a href="report.html" class="nav-item" data-page="report">
             <span class="material-symbols-outlined nav-icon">report</span>
             <span>Report</span>
+        </a>
+        <a class="nav-item active" data-page="map">
+            <span class="material-symbols-outlined nav-icon">map</span>
+            <span>Map</span>
         </a>
         <a href="notification.html" class="nav-item" data-page="notification">
             <span class="material-symbols-outlined nav-icon">notifications</span>
@@ -126,7 +120,6 @@
         </a>
     </nav>
 
-    <!-- Scripts -->
     <script src="script/global.js"></script>
     <script src="dashboard.js"></script>
     <script src="script/map.js"></script>
