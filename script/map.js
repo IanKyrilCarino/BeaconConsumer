@@ -549,6 +549,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==============================
 const styles = document.createElement('style');
 styles.textContent = `
+  /* FIX MAP CONTAINER Z-INDEX (Prevents overlap on navbar) */
+  #map {
+    z-index: 0 !important;
+    position: relative;
+  }
+
   /* FORCE OVERLAYS TO BE ON TOP OF MAP CONTROLS */
   .modal-overlay, .modal { 
       z-index: 20000 !important; 

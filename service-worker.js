@@ -1,17 +1,19 @@
 const CACHE_NAME = 'beacon-pwa-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/calendar.html',
-  '/map.html',
-  '/report.html',
-  '/notification.html',
-  '/login.html',
-  '/register.html',
-  '/information.html',
-  '/styles.css',
-  '/script.js',
-  '/manifest.json'
+  './',                  // Alias for index.html
+  'index.html',
+  'calendar.html',
+  'map.html',
+  'report.html',
+  'notification.html',
+  'login.html',          // Include if you have these pages
+  'register.html',       // Include if you have these pages
+  'styles.css',          // Ensure this matches your CSS filename
+  'dashboard.js',        // ✅ Changed from script.js
+  'notification.js',     // ✅ Added this based on your earlier code
+  'manifest.json',
+  'icons/icon-192.png',
+  'icons/icon-512.png'
 ];
 
 // Install event

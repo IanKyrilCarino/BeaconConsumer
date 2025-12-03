@@ -158,9 +158,9 @@ function processNotificationItem(item) {
     if (!isRelevant) return null;
 
     // 2. Version Key Generation
-    // We use the updated_at timestamp. If it changes, the Key changes.
-    // This creates the "New Notification" effect for updates.
-    const versionKey = `${item.id}_${item.updated_at}`;
+    // MODIFIED: Use ID only. This ensures persistent Read status even if item is updated.
+    const versionKey = `${item.id}`; 
+    // OLD: const versionKey = `${item.id}_${item.updated_at}`;
 
     // 3. Read Status
     // We check if this specific VERSION has been read.
@@ -299,14 +299,30 @@ function renderError(msg) {
 }
 
 // ==============================
-// Routing & Read Logic
+// Routing & Read Logic (MODIFIED)
 // ==============================
 window.routeToDashboard = function(announcementId, key) {
-    // Mark THIS specific version as read
+    // 1. Mark as read in state
     notifState.readKeys.add(key);
-    saveLocalState();
     
-    window.location.href = `index.html?focus_announcement=${announcementId}`;
+    // 2. Force a synchronous save attempt to ensure it persists
+    try {
+        localStorage.setItem('beacon_read_keys', JSON.stringify([...notifState.readKeys]));
+    } catch (e) {
+        console.error("Save failed", e);
+    }
+    
+    // 3. Update the UI immediately (visual feedback)
+    const card = document.querySelector(`.notification-card[onclick*="${key}"]`);
+    if (card) {
+        card.classList.remove('unread');
+        card.classList.add('read');
+    }
+
+    // 4. Redirect with a tiny delay to ensure storage write finishes
+    setTimeout(() => {
+        window.location.href = `index.html?focus_announcement=${announcementId}`;
+    }, 50);
 };
 
 function markAllAsRead() {

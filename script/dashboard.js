@@ -200,7 +200,7 @@ function subscribeToReportUpdates(userId) {
 }
 
 // ==============================
-// MODIFIED: Announcement Details Modal (Modern UI + Map Redirect)
+// MODIFIED: Announcement Details Modal (Full Image Fix)
 // ==============================
 async function showAnnouncementDetails(announcementId) {
   const { data: announcement, error } = await supabase
@@ -253,6 +253,8 @@ async function showAnnouncementDetails(announcementId) {
     z-index: 10000;
   `;
 
+  // === FIX 1: MODAL IMAGE DISPLAY ===
+  // Removed "background: url() cover" and replaced with an <img> tag logic
   modal.innerHTML = `
     <div class="modal-content" style="
         background: #fff; width: 100%; max-width: 600px;
@@ -262,8 +264,19 @@ async function showAnnouncementDetails(announcementId) {
         box-shadow: 0 10px 40px rgba(0,0,0,0.4); margin: ${isMobile ? '0' : 'auto'};
         animation: slideUp 0.3s ease-out;
     ">
-      <div style="position: relative; width: 100%; height: ${heroImage ? '200px' : '60px'}; background: ${heroImage ? `url('${heroImage}') center/cover` : '#f8f9fa'}; flex-shrink: 0;">
-         <button class="modal-close" style="position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); font-size: 18px;">✕</button>
+      
+      <div style="position: relative; width: 100%; background: #f8f9fa; flex-shrink: 0; min-height: 60px; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+         ${heroImage 
+            ? `<img src="${heroImage}" style="width: 100%; height: auto; max-height: 350px; object-fit: contain; display: block;" alt="Announcement Image">` 
+            : ''
+         }
+         <button class="modal-close" style="
+            position: absolute; top: 12px; right: 12px; 
+            width: 32px; height: 32px; border-radius: 50%; 
+            background: rgba(0,0,0,0.5); border: none; color: #fff; 
+            display: flex; align-items: center; justify-content: center; 
+            cursor: pointer; backdrop-filter: blur(4px); font-size: 18px; z-index: 2;
+         ">✕</button>
       </div>
 
       <div style="flex: 1; overflow-y: auto; padding: 20px 24px;">
@@ -423,10 +436,36 @@ function initializeDashboard() {
             filterAnnouncements(); 
         });
     });
+
+    // === FIX 2: MOBILE DATE PLACEHOLDER FIX ===
+    // This forces the date input to look like a Text input with a placeholder 
+    // until the user taps it.
+    const dateInput = document.querySelector('#dashboard input[type="date"].filter-select');
+    if (dateInput) {
+        // Set initial state
+        if (!dateInput.value) {
+            dateInput.setAttribute('type', 'text');
+            dateInput.setAttribute('placeholder', 'Filter by Date');
+        }
+
+        dateInput.addEventListener('focus', function() {
+            this.setAttribute('type', 'date');
+            // Try to trigger picker immediately if supported
+            if(this.showPicker) {
+                try { this.showPicker(); } catch(e) {}
+            }
+        });
+
+        dateInput.addEventListener('blur', function() {
+            if (!this.value) {
+                this.setAttribute('type', 'text');
+            }
+        });
+    }
 }
 
 // ==============================
-// Setup Pull-to-Refresh (PRESERVED from your original code)
+// Setup Pull-to-Refresh (PRESERVED)
 // ==============================
 let ptrIndicator; 
 function setupPullToRefresh() {
@@ -455,7 +494,7 @@ function setupPullToRefresh() {
         `;
         document.body.appendChild(ptrIndicator);
 
-        // Add spin animation - This was missing in my previous response!
+        // Add spin animation
         try {
             const styleSheet = document.styleSheets[0] || document.head.appendChild(document.createElement("style")).sheet;
             const ruleExists = Array.from(styleSheet.cssRules).some(rule => rule.name === 'spin');
@@ -541,7 +580,7 @@ function setupPullToRefresh() {
 
 
 // ==============================
-// Load & SORT Announcements (MODIFIED for VIP Sorting)
+// Load & SORT Announcements (MODIFIED for VIP Sorting + URL Focus)
 // ==============================
 async function loadDashboardAnnouncements() {
     const container = document.getElementById('reports-container'); 
@@ -636,6 +675,9 @@ async function loadDashboardAnnouncements() {
         }
         
         renderDashboardAnnouncements(allAnnouncementsCache, userBarangayCache); 
+        
+        // --- ADDED: Check URL for deep linking focus ---
+        handleUrlFocus();
 
     } catch (err) {
         console.error("Error loading dashboard announcements:", err);
@@ -644,7 +686,7 @@ async function loadDashboardAnnouncements() {
 }
 
 // ==============================
-// Render Dashboard Announcements (MODIFIED for Card UI)
+// Render Dashboard Announcements (MODIFIED for Card UI + IDs)
 // ==============================
 function renderDashboardAnnouncements(announcementsToRender, userBrgyName) { 
     const container = document.getElementById('reports-container');
@@ -716,7 +758,7 @@ function renderDashboardAnnouncements(announcementsToRender, userBrgyName) {
 
 
         return `
-        <div class="announcement-card">
+        <div class="announcement-card" id="announcement-${announcement.id}">
             <div class="card-header" style="padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                 <div>
                     <h3 style="margin: 0; font-size: 1.0rem; color: #333; line-height: 1.4;">
@@ -864,4 +906,34 @@ function filterAnnouncements(searchTerm = '') {
     }
     
     renderDashboardAnnouncements(filteredAnnouncements, userBarangayCache); 
+}
+
+// ==============================
+// Handle Deep Link Focus
+// ==============================
+function handleUrlFocus() {
+    const params = new URLSearchParams(window.location.search);
+    const focusId = params.get('focus_announcement');
+
+    if (focusId) {
+        // Wait a tiny bit for the DOM to be ready
+        setTimeout(() => {
+            const element = document.getElementById(`announcement-${focusId}`);
+            if (element) {
+                // Scroll the card into the center of the screen
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Add a visual "flash" so the user knows which one it is
+                element.style.transition = 'box-shadow 0.5s ease, border-color 0.5s ease';
+                element.style.boxShadow = '0 0 0 4px rgba(241, 196, 15, 0.5)'; // Gold glow
+                element.style.borderColor = '#f1c40f';
+
+                // Remove the glow after 2 seconds
+                setTimeout(() => {
+                    element.style.boxShadow = '';
+                    element.style.borderColor = '';
+                }, 2000);
+            }
+        }, 300); // 300ms delay to ensure HTML is painted
+    }
 }
