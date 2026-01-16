@@ -28,8 +28,12 @@ function waitForSupabase(timeout = 5000) {
 function initializeLogin() {
     const loginButton = document.getElementById('login-button');
     const guestButton = document.getElementById('guest-button');
+    const forgotPasswordBtn = document.getElementById('forgot-password-link');
 
     if (loginButton) loginButton.addEventListener('click', loginUser);
+    if (forgotPasswordBtn) {
+        forgotPasswordBtn.addEventListener('click', handleForgotPassword);
+    }
     if (guestButton) guestButton.addEventListener('click', e => {
         e.preventDefault();
         continueAsGuest();
@@ -91,4 +95,34 @@ function continueAsGuest() {
     localStorage.removeItem('currentUser');
     localStorage.setItem('guest', 'true');
     window.location.href = 'index.html';
+}
+
+async function handleForgotPassword(e) {
+    e.preventDefault();
+
+    // 1. Get the email from the existing input field
+    const email = document.getElementById('login-identifier').value.trim();
+
+    // 2. Validate
+    if (!email) {
+        alert("Please enter your email address in the box above so we know where to send the reset link.");
+        return;
+    }
+
+    // 3. Send Reset Request to Supabase
+    try {
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            // This is where the user goes after clicking the email link.
+            // You'll need a page to handle the new password input (e.g., reset.html)
+            redirectTo: window.location.origin + '/update-password.html' 
+        });
+
+        if (error) throw error;
+
+        alert(`Check your email (${email}) for the password reset link!`);
+
+    } catch (err) {
+        console.error("Reset Password Error:", err);
+        alert('Error sending reset link: ' + err.message);
+    }
 }

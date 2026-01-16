@@ -7,6 +7,35 @@ const SUBMISSION_COOLDOWN = 30000; // 30 seconds
 let uploadedImages = []; // Array to store multiple images
 const MAX_IMAGES = 5;
 
+/**
+ * BEACON Sentiment Scoring Engine
+ * Revised with Taglish reliability, impact, and support phrases.
+ */
+function calculateReportSentiment(text) {
+    const content = text.toLowerCase();
+    let score = 0;
+
+    // --- KEYWORDS (Individual words are better than long phrases) ---
+    const critical = ["consistent", "consistent", "Paulit-ulit", "ulit", "Nakakainis", "Sunog", "Nag-spark", "sparking", "umaapoy", "sumabog", "nanaman", "umay", "buset", "putik", "gago", "potangna", "binalik", "binawi", "brownout", "wala", "service", "2026"];
+    const workImpact = ["hanap-buhay", "wfh", "online", "teaching", "call center", "trabaho", "night shift"];
+    const damage = ["masisira", "appliances", "gamit", "surge", "airfryer", "kanin"];
+    const positive = ["heroes", "salamat", "meron na", "may ilaw", "finally", "ayos", "grateful", "thank you", "ingat", "good job", "safe"];
+
+    // --- SCORING ---
+    critical.forEach(p => { if (content.includes(p)) score -= 3; });
+    workImpact.forEach(p => { if (content.includes(p)) score -= 5; });
+    damage.forEach(p => { if (content.includes(p)) score -= 4; });
+    positive.forEach(p => { if (content.includes(p)) score += 5; });
+
+    // Clamp for smallint DB column
+    const finalScore = Math.max(-10, Math.min(10, score));
+    
+    // DEBUG LOG: This will show you the score in the browser console
+    console.log(`📝 Sentiment Analysis: "${text}" | Result: ${finalScore}`);
+    
+    return finalScore;
+}
+
 // ==============================
 // Wait for Supabase Initialization
 // ==============================
@@ -400,6 +429,28 @@ function initializeReportForm() {
     });
   }
 
+  // NEW: Call Permission & Auto-fill Logic
+const contactToggle = document.getElementById("contact-permission-toggle");
+const phoneContainer = document.getElementById("phone-input-container");
+const phoneInput = document.getElementById("contact-number");
+
+if (contactToggle) {
+    contactToggle.addEventListener("change", () => {
+        if (contactToggle.checked) {
+            phoneContainer.style.display = "block";
+            
+            // Auto-fill from global user state if phone number exists in profile
+            const auth = getAuthState(); // Function from global.js
+            if (auth.user && auth.user.mobile) {
+                phoneInput.value = auth.user.mobile;
+            }
+        } else {
+            phoneContainer.style.display = "none";
+            phoneInput.value = ""; // Clear if disabled
+        }
+    });
+}
+
   const submitButton = document.getElementById("submit-report");
   if (submitButton) submitButton.addEventListener("click", submitOutageReport);
 
@@ -675,6 +726,9 @@ async function submitOutageReport() {
   const description = document.getElementById("outage-description").value;
   const latitude = document.getElementById("latitude")?.value || null;
   const longitude = document.getElementById("longitude")?.value || null;
+  const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
+  const contactNumber = document.getElementById("contact-number")?.value || null;
+  const sentimentScore = calculateReportSentiment(description);
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -702,6 +756,9 @@ async function submitOutageReport() {
         latitude,
         longitude,
         status: "pending",
+        sentiment_score: sentimentScore, 
+        contact_permission: contactPermission,
+        contact_number: contactPermission ? contactNumber : null
       }])
       .select()
       .single();
@@ -855,9 +912,9 @@ async function showReportDetails(reportId) {
         <p><strong>Reported On:</strong> ${new Date(report.outage_time).toLocaleString()}</p>
         <p><strong>Cause:</strong> ${report.cause}</p>
         <p><strong>Description:</strong> ${report.description}</p>
+        ${report.contact_permission ? `<p><strong>Contact:</strong> ${report.contact_number}</p>` : ''}
         <p><strong>Status:</strong> <span class="status status-${report.status}">${report.status}</span></p>
       </div>
-    </div>
   `;
 
   document.body.appendChild(modal);

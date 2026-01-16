@@ -15,7 +15,7 @@ if (window.supabase && window.supabase.createClient) {
     }
 } else if (!window.supabase) {
     // Only log error if completely missing, otherwise we wait for initSupabase
-    // console.error("❌ Supabase library not found! Check your HTML script tags.");
+    console.error("❌ Supabase library not found! Check your HTML script tags.");
 }
 
 // ==========================

@@ -18,7 +18,6 @@
             <div class="user-info">
                 <h3>John Smith</h3>
                 <p>User</p>
-                <button class="edit-profile">Edit Profile</button>
             </div>
         </div>
          <ul class="desktop-nav-menu">
@@ -128,6 +127,23 @@
                     </div>
                     <input type="hidden" id="latitude">
                     <input type="hidden" id="longitude">
+                </div>
+
+                <div class="report-option-group" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-weight: 600; gap: 10px;">
+                        <input type="checkbox" id="contact-permission-toggle" style="width: 18px; height: 18px;">
+                        Enable option for phone to be called
+                    </label>
+                    
+                    <div id="phone-input-container" style="display: none; margin-top: 10px;">
+                        <label for="contact-number" style="display: block; font-size: 0.9rem; margin-bottom: 5px;">Phone Number:</label>
+                        <input type="tel" id="contact-number" placeholder="09XXXXXXXXX" 
+                            style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                    </div>
+                    
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                        * By toggling this on, you give your <strong>consent and permission</strong> to be called by authorized personnel regarding this report for verification and updates. Your data is protected under the Data Privacy Act.
+                    </p>
                 </div>
 
                 <button class="submit-button" id="submit-report">Submit Report</button>
