@@ -3,13 +3,13 @@ networks:
     external: true
 
 services:
-  ian_consumer:
-    container_name: ian_consumer
+  ian-consumer:
+    container_name: ian-consumer
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ..:/app:cached      
+      - ..:/workspace:cached      
     command: sleep infinity
     networks:
       - beacon-dev
