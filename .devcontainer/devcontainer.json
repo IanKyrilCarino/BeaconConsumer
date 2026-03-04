@@ -1,0 +1,41 @@
+{
+    "name": "Ian Consumer",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ian-consumer",
+    "workspaceFolder": "/workspace",
+    "remoteUser": "node",
+    "updateRemoteUserUID": true,
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {}
+    },
+    "mounts": [
+        "source=vscode_extensions,target=/home/node/.vscode-server/extensions,type=volume",
+        "source=vscode_data,target=/home/node/.vscode-server/data,type=volume",
+        "source=${localEnv:HOME}/.ssh/id_ed25519_signing.pub,target=/home/node/.ssh/id_ed25519_signing.pub,type=bind,consistency=cached"
+    ],
+    "forwardPorts": [3070],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "vue.volar",
+                "vue.vscode-typescript-vue-plugin",
+                "nuxt.nvidia-nuxt",
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "formulahendry.auto-rename-tag",
+                "bradlc.vscode-tailwindcss",
+                "oderwat.indent-rainbow",
+                "mhutchie.git-graph",
+                "ecmel.vscode-html-css",
+                "ms-vscode.vscode-typescript-next",
+                "stivo.tailwind-fold"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "editor.formatOnSave": true,
+                "vue.features.splitEditors.enabled": true
+            }
+        }
+    },
+    "postCreateCommand": "sudo chown -R node:node /home/node && git config --global gpg.format ssh && git config --global user.signingkey /home/node/.ssh/id_ed25519_signing.pub && git config --global commit.gpgsign true"
+}
