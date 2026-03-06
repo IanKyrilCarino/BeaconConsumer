@@ -408,8 +408,24 @@ function initializeReportForm() {
     });
   });
 
-  // --- ENHANCED IMAGE UPLOAD HANDLING ---
+  const urgentToggle = document.getElementById("is-urgent");
   const imageUploadArea = document.getElementById("image-upload");
+
+  if (urgentToggle && imageUploadArea) {
+      // Find the label that belongs to the image upload group
+      const imageLabel = imageUploadArea.parentElement.querySelector('.form-label');
+
+      urgentToggle.addEventListener("change", () => {
+          if (urgentToggle.checked) {
+              imageLabel.classList.add("required");
+          } else {
+              imageLabel.classList.remove("required");
+          }
+      });
+  }
+
+  // --- ENHANCED IMAGE UPLOAD HANDLING ---
+  // const imageUploadArea = document.getElementById("image-upload");
   const originalInput = document.getElementById("image-input");
   
   if (imageUploadArea && originalInput) {
@@ -710,6 +726,7 @@ function validateReportForm() {
   const outageTime = document.getElementById("outage-time").value;
   const cause = document.getElementById("selected-cause").value;
   const description = document.getElementById("outage-description").value;
+  const isUrgent = document.getElementById("is-urgent")?.checked || false;
 
   const errors = [];
   
@@ -718,6 +735,10 @@ function validateReportForm() {
   if (!cause) errors.push("Please select a cause");
   if (!description.trim()) errors.push("Please provide a description");
   if (description.length < 10) errors.push("Description must be at least 10 characters");
+
+  if (isUrgent && uploadedImages.length === 0) {
+    errors.push("Urgent reports require at least one photo for verification.");
+  }
 
   return {
     isValid: errors.length === 0,
@@ -835,6 +856,7 @@ async function submitOutageReport() {
   const contactPermission = document.getElementById("contact-permission-toggle")?.checked || false;
   const contactNumber = document.getElementById("contact-number")?.value || null;
   const sentimentScore = await calculateReportSentiment(description);
+  const isUrgent = document.getElementById("is-urgent")?.checked || false;
 
   // 5. Check Auth
   const { data: { user } } = await supabase.auth.getUser();
@@ -864,7 +886,8 @@ async function submitOutageReport() {
         status: "pending", 
         sentiment_score: sentimentScore,
         contact_permission: contactPermission,
-        contact_number: contactPermission ? contactNumber : null
+        contact_number: contactPermission ? contactNumber : null,
+        is_urgent: isUrgent
       }])
       .select()
       .single();
@@ -886,7 +909,8 @@ async function submitOutageReport() {
           description: description,     // Update description
           latitude: latitude,           // Update location if changed
           longitude: longitude,
-          sentiment_score: sentimentScore
+          sentiment_score: sentimentScore,
+          is_urgent: isUrgent
         })
         .eq('user_id', user.id)
         .eq('barangay', barangay)
